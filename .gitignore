@@ -3,3 +3,9 @@ node_modules/
 .DS_Store
 *.log
 
+# SSL сертификаты (не должны попадать в репозиторий)
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+!nginx/ssl/.gitkeep
+

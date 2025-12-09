@@ -57,16 +57,59 @@ docker run -d \
 - `PORT` - порт приложения (по умолчанию 3000)
 - `NODE_ENV` - окружение (production/development)
 
+## Nginx Reverse Proxy
+
+Приложение работает за Nginx reverse proxy. Nginx доступен на портах 80 (HTTP) и 443 (HTTPS).
+
+### Конфигурация Nginx
+
+- Базовая конфигурация: `nginx/nginx.conf` (HTTP только)
+- Пример с SSL: `nginx/nginx-ssl.conf.example` (HTTPS)
+
+### Настройка SSL
+
+1. Получите SSL сертификат через Let's Encrypt:
+```bash
+sudo certbot certonly --standalone -d ваш-домен.com -d www.ваш-домен.com
+```
+
+2. Скопируйте сертификаты в директорию `nginx/ssl/`:
+```bash
+sudo cp /etc/letsencrypt/live/ваш-домен.com/fullchain.pem nginx/ssl/
+sudo cp /etc/letsencrypt/live/ваш-домен.com/privkey.pem nginx/ssl/
+sudo chmod 644 nginx/ssl/fullchain.pem
+sudo chmod 600 nginx/ssl/privkey.pem
+```
+
+3. Используйте конфигурацию с SSL:
+```bash
+cp nginx/nginx-ssl.conf.example nginx/nginx.conf
+# Отредактируйте nginx.conf, заменив ваш-домен.com на ваш домен
+```
+
+4. Перезапустите nginx:
+```bash
+docker-compose restart nginx
+```
+
 ## Health Check
 
 Приложение имеет health check endpoint:
 ```bash
+# Через nginx
+curl http://localhost/health
+# Или напрямую (если порт проброшен)
 curl http://localhost:3000/health
 ```
 
-В `docker-compose.prod.yml` настроены health checks для обоих сервисов.
+В `docker-compose.prod.yml` настроены health checks для всех сервисов (nginx, app, mongodb).
 
 ## Мониторинг
+
+### Логи Nginx
+```bash
+docker-compose -f docker-compose.prod.yml logs -f nginx
+```
 
 ### Логи приложения
 ```bash
@@ -117,7 +160,7 @@ docker exec -i ios-atr-mongodb mongorestore /data/backup
 docker-compose -f docker-compose.prod.yml up -d --scale app=3
 ```
 
-Убедитесь, что у вас настроен load balancer (nginx, traefik и т.д.) перед приложением.
+Nginx уже настроен как load balancer перед приложением. При масштабировании nginx автоматически распределит нагрузку между экземплярами.
 
 ## Безопасность
 
@@ -134,7 +177,7 @@ environment:
 
 3. Настроить firewall правила
 
-4. Использовать HTTPS через reverse proxy (nginx, traefik)
+4. Использовать HTTPS через nginx (см. раздел "Настройка SSL" выше)
 
 ## Troubleshooting
 
@@ -157,6 +200,18 @@ docker-compose -f docker-compose.prod.yml logs mongodb
 
 # Проверьте подключение
 docker exec -it ios-atr-mongodb mongosh ios-atr
+```
+
+### Проблемы с Nginx
+```bash
+# Проверьте логи nginx
+docker-compose -f docker-compose.prod.yml logs nginx
+
+# Проверьте конфигурацию nginx
+docker exec -it ios-atr-nginx nginx -t
+
+# Перезагрузите конфигурацию nginx
+docker exec -it ios-atr-nginx nginx -s reload
 ```
 
 ### Проблемы с сетью
