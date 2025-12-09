@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ios-atr-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/ios-atr
+    depends_on:
+      - mongodb
+    networks:
+      - ios-atr-network
+
+  mongodb:
+    image: mongo:7
+    container_name: ios-atr-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ios-atr
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ios-atr-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  ios-atr-network:
+    driver: bridge
+
