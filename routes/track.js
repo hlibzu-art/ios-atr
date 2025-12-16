@@ -5,6 +5,7 @@ const Lead = require('../models/Lead');
 const AppMapping = require('../models/AppMapping');
 const PixelTokenMap = require('../models/PixelTokenMap');
 const { generateClickId } = require('../utils/clickId');
+const { parseUserAgent } = require('../utils/parseUserAgent');
 
 // Роут для обработки запросов
 router.get('/', async (req, res) => {
@@ -12,10 +13,13 @@ router.get('/', async (req, res) => {
     const { app_id, sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8, sub9, camp_id, pixel, fbclid } = req.query;
     // Получаем реальный IP адрес пользователя, который делает запрос
     const ip = requestIp.getClientIp(req) || req.clientIp || req.ip || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    const rawUserAgent = req.headers['user-agent'] || 'unknown';
+    // Парсим user-agent и извлекаем только информацию об устройстве и ОС
+    const userAgent = parseUserAgent(rawUserAgent);
     
     // Логируем для отладки (можно убрать в продакшене)
     console.log('Client IP detected:', ip);
+    console.log('Parsed User-Agent:', userAgent);
 
     // Ищем токен по pixel, если pixel указан
     let token = null;
@@ -30,7 +34,7 @@ router.get('/', async (req, res) => {
     }
 
     // Генерируем уникальный идентификатор клика для track
-    // Уникальность определяется по комбинации app_id + ip + userAgent
+    // Уникальность определяется по комбинации app_id + ip + userAgent (используем парсенный userAgent)
     const clickId = generateClickId('track', app_id, ip, userAgent);
 
     // Сохраняем данные в базу

@@ -4,6 +4,7 @@ const requestIp = require('request-ip');
 const Lead = require('../models/Lead');
 const CheckLead = require('../models/CheckLead');
 const { generateClickId } = require('../utils/clickId');
+const { parseUserAgent } = require('../utils/parseUserAgent');
 
 // Роут для проверки и формирования ссылки на основе IP и User-Agent
 router.get('/', async (req, res) => {
@@ -19,12 +20,14 @@ router.get('/', async (req, res) => {
 
     // Получаем IP и User-Agent текущего запроса
     const ip = requestIp.getClientIp(req) || req.clientIp || req.ip || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    const rawUserAgent = req.headers['user-agent'] || 'unknown';
+    // Парсим user-agent и извлекаем только информацию об устройстве и ОС
+    const userAgent = parseUserAgent(rawUserAgent);
     
     console.log('Checking lead:', { app_id, ip, userAgent });
 
     // Генерируем уникальный идентификатор клика для check
-    // Уникальность определяется по комбинации app_id + ip + userAgent
+    // Уникальность определяется по комбинации app_id + ip + userAgent (используем парсенный userAgent)
     const clickId = generateClickId('check', app_id, ip, userAgent);
 
     // Ищем запись в базе с таким IP, User-Agent и app_id
@@ -39,29 +42,24 @@ router.get('/', async (req, res) => {
     let leadId = null;
 
     if (!lead) {
+      // Если запись не найдена, редиректим на дефолтный URL
+      const defaultRedirectUrl = 'https://oxiktr.space/f91Tqn';
+      
       // Сохраняем запись о check даже если lead не найден
       const checkLead = new CheckLead({
         app_id,
         ip,
         userAgent,
         clickId,
-        redirectUrl: null,
+        redirectUrl: defaultRedirectUrl,
         foundLead: false,
         leadId: null
       });
       await checkLead.save();
-      console.log('Check lead saved (no track lead found):', { app_id, ip, clickId });
+      console.log('Check lead saved (no track lead found), redirecting to default URL:', { app_id, ip, clickId, defaultRedirectUrl });
 
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Lead not found for this IP and User-Agent',
-        data: {
-          app_id,
-          ip,
-          userAgent,
-          checkClickId: clickId
-        }
-      });
+      // Редиректим на дефолтный URL
+      return res.redirect(302, defaultRedirectUrl);
     }
 
     foundLead = true;
